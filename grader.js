@@ -28,6 +28,7 @@ var rest = require('restler');
 var sys = require('util');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var checkJson = {};
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -38,8 +39,13 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
-var cheerioHtmlFile = function(htmlfile) {
-    return cheerio.load(fs.readFileSync(htmlfile));
+var cheerioHtmlFile = function(htmlfile, isFromUrl) {
+    isFromUrl = isFromUrl || false;
+    if (isFromUrl === true) {
+      return cheerio.load(htmlfile.toString());
+    }else {
+      return cheerio.load(fs.readFileSync(htmlfile));
+    }
 };
 
 var loadChecks = function(checksfile) {
@@ -48,33 +54,36 @@ var loadChecks = function(checksfile) {
 
 var checkHtmlFile = function(htmlfile, checksfile, isFromUrl) {
     isFromUrl = isFromUrl || false;
-    if (isFromUrl === true) {
-        console.log('Will try to use rest');
-        rest.get(htmlfile).on('complete', function(result){
-        if (result instanceof Error) {
-          sys.puts('Error: ' + result.message);
-          this.retry(5000);
-        } else {
-          htmlfile = result;
-          console.log('---- htmfile:');
-          console.log(htmlfile);
-        }
-      });
-    }
-    $ = cheerioHtmlFile(htmlfile);
+    $ = cheerioHtmlFile(htmlfile, isFromUrl);
     var checks = loadChecks(checksfile).sort();
     var out = {};
     for(var ii in checks) {
-        var present = $(checks[ii]).length > 0;
-        out[checks[ii]] = present;
+      var present = $(checks[ii]).length > 0;
+      out[checks[ii]] = present;
     }
-    return out;
+  return out;
+};
+
+var checkUrl = function(url, checks){
+    console.log('Will try to use rest');
+    return rest.get(url);
 };
 
 var clone = function(fn) {
     // Workaround for commander.js issue.
     // http://stackoverflow.com/a/6772648
     return fn.bind({});
+};
+
+var urlHandler = function(result){
+    if (result instanceof Error) {
+      sys.puts('Error: ' + result.message);
+      this.retry(5000);
+    } else {
+      console.log('---- htmfile:');
+      checkJson =  checkHtmlFile(result, program.checks, true);
+      console.log(JSON.stringify(checkJson, null, 4));
+    }
 };
 
 if(require.main == module) {
@@ -84,19 +93,19 @@ if(require.main == module) {
         .option('-u, --url <url>', 'Path to www.example.com')
         .parse(process.argv);
 
-    console.log('--------------------------------------------------------------');		
+    console.log('--------------------------------------------------------------');
     console.log('Welcome :)');
     //console.log(program);
-    var checkJson = {};    
+
     if (program.url) {
-      console.log('Will load url'); 
-      checkJson = checkHtmlFile(program.url, program.checks, true);
+      console.log('Will load url');
+      var urlLoaded = checkUrl(program.url);
+      urlLoaded.on('complete', urlHandler);
     }else if(program.file) {
       console.log('Will load file');
       checkJson = checkHtmlFile(program.file, program.checks);
+      console.log(JSON.stringify(checkJson, null, 4));
     }
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
