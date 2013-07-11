@@ -65,7 +65,6 @@ var checkHtmlFile = function(htmlfile, checksfile, isFromUrl) {
 };
 
 var checkUrl = function(url, checks){
-    console.log('Will try to use rest');
     return rest.get(url);
 };
 
@@ -80,7 +79,6 @@ var urlHandler = function(result){
       sys.puts('Error: ' + result.message);
       this.retry(5000);
     } else {
-      console.log('---- htmfile:');
       checkJson =  checkHtmlFile(result, program.checks, true);
       console.log(JSON.stringify(checkJson, null, 4));
     }
@@ -93,16 +91,10 @@ if(require.main == module) {
         .option('-u, --url <url>', 'Path to www.example.com')
         .parse(process.argv);
 
-    console.log('--------------------------------------------------------------');
-    console.log('Welcome :)');
-    //console.log(program);
-
     if (program.url) {
-      console.log('Will load url');
       var urlLoaded = checkUrl(program.url);
       urlLoaded.on('complete', urlHandler);
     }else if(program.file) {
-      console.log('Will load file');
       checkJson = checkHtmlFile(program.file, program.checks);
       console.log(JSON.stringify(checkJson, null, 4));
     }
